@@ -17,23 +17,8 @@ def create_dataset(load_path, obs_dim, goal_dim=None):
             dataset[key] = dataset[key][:,:obs_dim]
 
     dones_float = 1.0 - dataset['not_done']
-
-    for i in range(len(dones_float)-1):
-        if dataset['reward'][i] < dataset['reward'][i+1]:
-            dones_float[i] = 1
-
-        # if dataset['reward'][i] == 1:
-        #     dataset['state'][i+1] = dataset['state'][i]
-        #     dataset['next_state'][i] = dataset['state'][i]
-
-    # mask = dataset['reward'][:-1] < dataset['reward'][1:]
-    # dones_float[:-1][mask] = 1
-
-    # reward_mask = dataset['reward'] == 1
-    # dataset['state'][1:][reward_mask[:-1]] = dataset['state'][:-1][reward_mask[:-1]]
-    # dataset['next_state'][:-1][reward_mask[:-1]] = dataset['state'][:-1][reward_mask[:-1]]
-
-
+    reward_increase = dataset['reward'][:-1] < dataset['reward'][1:]
+    dones_float[:-1] = np.where(reward_increase, 1, dones_float[:-1])
     dones_float[-1] = 1
 
 
@@ -95,12 +80,11 @@ def get_dataset(env: gym.Env,
             
             dones_float = np.zeros_like(dataset['rewards'])
             dataset['terminals'][:] = 0.
-            for i in range(len(dones_float) - 1):
-                if np.linalg.norm(dataset['observations'][i + 1] - dataset['next_observations'][i]) > 1e-6:
-                    dones_float[i] = 1
-                else:
-                    dones_float[i] = 0
-            dones_float[-1] = 1
+            diffs = np.linalg.norm(
+                dataset['observations'][1:] - dataset['next_observations'][:-1], axis=-1
+            )
+            dones_float[:-1] = (diffs > 1e-6).astype(float)
+            dones_float[-1] = 1.0
             if dataset_type =='mini':
                 # sample 1% full trajectories for training
                 # first organize the data into full trajectories
@@ -162,10 +146,8 @@ def get_dataset(env: gym.Env,
         elif 'maze2d' in env_name:
             dones_float = dataset['terminals'].copy()
             dataset['terminals'][:] = 0.
-            for i in range(len(dones_float)-1):
-                if dataset['rewards'][i] == 0 and dataset['rewards'][i+1] == 1:
-                    dones_float[i] = 1
-
+            reward_rise = (dataset['rewards'][:-1] == 0) & (dataset['rewards'][1:] == 1)
+            dones_float[:-1] = np.where(reward_rise, 1, dones_float[:-1])
             dones_float[-1] = 1
             achieved_goals = dataset['observations'][:, :2]
             next_achieved_goals = dataset['next_observations'][:, :2]
@@ -210,7 +192,6 @@ def normalize_dataset(env_name, dataset):
 
 import numpy as np
 import scipy.interpolate as interpolate
-import pdb
 
 POINTMASS_KEYS = ['observations', 'actions', 'next_observations', 'deltas']
 

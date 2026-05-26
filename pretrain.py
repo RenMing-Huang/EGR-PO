@@ -120,23 +120,20 @@ def get_v(agent, goal, observations):
 
 
 
+@torch.no_grad()
 def get_traj_v(agent, trajectory):
-    def get_v(s, g):
-        s = np.expand_dims(s, axis=0)
-        g = np.expand_dims(g, axis=0)
-        # to torch
-        s = torch.from_numpy(s).float().to(device)
-        g = torch.from_numpy(g).float().to(device)
-        v1, v2 = agent.network.value(s, g)
-        ret = (v1 + v2) / 2
-        return ret.cpu().detach().numpy().squeeze()
     observations = trajectory['observations']
-    all_values = np.apply_along_axis(lambda x: np.apply_along_axis(get_v, 1, observations, x), 1, observations)
-
+    n = observations.shape[0]
+    obs_t = torch.from_numpy(observations).float().to(device)
+    # Compute all (n × n) state-goal value pairs in a single batched forward pass.
+    states = obs_t.unsqueeze(1).expand(n, n, -1).reshape(n * n, -1)
+    goals = obs_t.unsqueeze(0).expand(n, n, -1).reshape(n * n, -1)
+    v1, v2 = agent.network.value(states, goals)
+    all_values = ((v1 + v2) / 2).reshape(n, n).cpu().numpy()
     return {
         'dist_to_beginning': all_values[:, 0],
         'dist_to_end': all_values[:, -1],
-        'dist_to_middle': all_values[:, all_values.shape[1] // 2],
+        'dist_to_middle': all_values[:, n // 2],
     }
 
 def set_seed(seed):
@@ -148,9 +145,7 @@ def set_seed(seed):
 def main(_):
     g_start_time = int(datetime.now().timestamp())
 
-    exp_name = ''
-    exp_name += f'sd{FLAGS.seed:03d}_'
-    # set_seed(FLAGS.seed)
+    exp_name = f'sd{FLAGS.seed:03d}_'
     if 'SLURM_JOB_ID' in os.environ:
         exp_name += f's_{os.environ["SLURM_JOB_ID"]}.'
     if 'SLURM_PROCID' in os.environ:
@@ -401,7 +396,7 @@ def main(_):
     train_logger.close()
     eval_logger.close()
 
-def formate_print(_dict):
+def format_print(_dict):
     print('============================')
     for k, v in _dict.items():
         print(f'{k}: {v:.4f}')

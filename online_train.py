@@ -23,7 +23,7 @@ import pickle
 from src.utils import record_video
 from src.agents.hdql import device
 
-from sac_agent import Guided_SAC_countinuous 
+from sac_agent import Guided_SAC_countinuous
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('env_name', 'antmaze-large-play-v2', '')
@@ -124,24 +124,19 @@ def get_v(agent, goal, observations):
 
 
 
+@torch.no_grad()
 def get_traj_v(agent, trajectory):
-    def get_v(s, g):
-        s = torch.from_numpy(s).float().to(device)
-        g = torch.from_numpy(g).float().to(device)
-        v1, v2 = agent.network.value(s[None], g[None])
-        return (v1 + v2) / 2
-    
     observations = trajectory['observations']
-    all_values = np.zeros((observations.shape[0], observations.shape[0]))
-    
-    for i in range(observations.shape[0]):
-        for j in range(observations.shape[0]):
-            all_values[i, j] = get_v(observations[i], observations[j])
-    
+    n = observations.shape[0]
+    obs_t = torch.from_numpy(observations).float().to(device)
+    states = obs_t.unsqueeze(1).expand(n, n, -1).reshape(n * n, -1)
+    goals = obs_t.unsqueeze(0).expand(n, n, -1).reshape(n * n, -1)
+    v1, v2 = agent.network.value(states, goals)
+    all_values = ((v1 + v2) / 2).reshape(n, n).cpu().numpy()
     return {
-        'dist_to_beginning': all_values[:, 0,],
+        'dist_to_beginning': all_values[:, 0],
         'dist_to_end': all_values[:, -1],
-        'dist_to_middle': all_values[:, all_values.shape[1] // 2]
+        'dist_to_middle': all_values[:, n // 2],
     }
 
 def get_distance(v):
@@ -727,28 +722,3 @@ def evaluate_policy(env_name, env, agent, high_policy, goal_encode, value_fn, tu
     return (total_scores/turns), (steps/turns), renders
 
 if __name__ == '__main__':
-    app.run(main)
-
-
-
-
-
-
-
-
-
-
-
-
-# def xy_to_pixxy(x, y):
-                    #     if 'large' in env_name:
-                    #         pixx = (x / 36) * (0.93 - 0.07) + 0.07
-                    #         pixy = (y / 24) * (0.21 - 0.79) + 0.79
-                    #     elif 'ultra' in env_name:
-                    #         pixx = (x / 52) * (0.955 - 0.05) + 0.05
-                    #         pixy = (y / 36) * (0.19 - 0.81) + 0.81
-                    #     return pixx, pixy
-                    # x, y = cur_obs_goal_rep[:2]
-                    # pixx, pixy = xy_to_pixxy(x, y)
-                    # cur_frame[0, int((pixy - 0.02) * size):int((pixy + 0.02) * size), int((pixx - 0.02) * size):int((pixx + 0.02) * size)] = 255
-                    # cur_frame[1:3, int((pixy - 0.02) * size):int((pixy + 0.02) * size), int((pixx - 0.02) * size):int((pixx + 0.02) * size)] = 0

@@ -25,7 +25,8 @@ class GCDataset:
         if multi_goal:
             print('Using multi goal')
             self.multi_goal_locs, = np.nonzero(self.dataset['rewards'] > 0)
-        assert torch.isclose(torch.tensor(self.p_randomgoal + self.p_trajgoal + self.p_currgoal), torch.tensor(1.0))
+        assert abs(self.p_randomgoal + self.p_trajgoal + self.p_currgoal - 1.0) < 1e-5, \
+            f"Goal probabilities must sum to 1.0, got {self.p_randomgoal + self.p_trajgoal + self.p_currgoal}"
 
         self.success_fn = self.rewards_fn(self.env_name)
         if self.success_fn is None:
