@@ -192,9 +192,10 @@ bash script/online_universe.sh
 ## Citation
 
 ```bibtex
-@inproceedings{egrpo2024,
-  title     = {Goal-Reaching Policy Learning from Non-Expert Observations via Effective Subgoal Guidance},
-  booktitle = {Conference on Robot Learning (CoRL)},
-  year      = {2024},
+@article{huang2024goal,
+  title={Goal-Reaching Policy Learning from Non-Expert Observations via Effective Subgoal Guidance},
+  author={Huang, Renming and Liu, Shaochong and Pei, Yunqiang and Wang, Peng and Wang, Guoqing and Yang, Yang and Shen, Hengtao},
+  journal={arXiv preprint arXiv:2409.03996},
+  year={2024}
 }
 ```
